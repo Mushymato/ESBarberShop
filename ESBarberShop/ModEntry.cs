@@ -67,20 +67,18 @@ public sealed class BarberShopMenu : CharacterCustomization
         : base(source, false)
     {
         // make menu shorter
-        height -= 96;
+        height -= 160;
+        // move OK button up
+        okButton.bounds.Y -= 160;
         UnResetComponents();
-        height -= 32;
         PriorState = new(Game1.player.accessory.Value, Game1.player.hair.Value, Game1.player.hairstyleColor.Value);
-        GetOrCreateDisplayFarmer();
     }
 
     public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
     {
         source = Source.Wizard;
         base.gameWindowSizeChanged(oldBounds, newBounds);
-        height += 32;
         UnResetComponents();
-        height -= 32;
     }
 
     /// <summary>
@@ -120,8 +118,6 @@ public sealed class BarberShopMenu : CharacterCustomization
         leftBtn.bounds.Y += 64;
         rightBtn.bounds.X = leftBtn.bounds.X + xDelta;
         rightBtn.bounds.Y += 64;
-        // move OK button up
-        okButton.bounds.Y -= 128;
 
         if (Game1.options.snappyMenus && Game1.options.gamepadControls)
         {
