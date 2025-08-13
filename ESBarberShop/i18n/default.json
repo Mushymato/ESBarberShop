@@ -1,3 +1,8 @@
 {
-  "$schema": "https://smapi.io/schemas/i18n.json",
+    "Menu.Title": "Barber Shop",
+    "Menu.Question": "What style would you like today?",
+    "Menu.Confirm": "Are you satisfied with this style?",
+    "Menu.NotEnoughMoney": "Looks like you are short on cash, come again!",
+    "Menu.Canceled": "Sorry to hear that, come again!",
+    "Menu.Finished": "Glad you liked it, come again!"
 }

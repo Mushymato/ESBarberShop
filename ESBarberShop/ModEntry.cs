@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
@@ -8,17 +9,17 @@ using StardewValley.Menus;
 
 namespace ESBarberShop;
 
+/// <summary>
+/// A special 0x0 sized (un)clickable component to be inserted in front of leftSelectionButtons
+/// This is a small no-harmony hack used to draw stuff just above background but beneath most other things
+/// </summary>
 public sealed class SpecialDrawsComponent(
-    Rectangle bounds,
+    Rectangle bounds, // new(xPositionOnScreen, yPositionOnScreen, 0, 0),
     Texture2D texture,
-    Rectangle sourceRect,
-    float scale,
-    bool drawShadow = false
-) : ClickableTextureComponent(bounds, texture, sourceRect, scale, drawShadow)
+    Rectangle sourceRect, // new(portraitBox.X, portraitBox.Y, width, height)
+    float scale
+) : ClickableTextureComponent(bounds, texture, sourceRect, scale, false)
 {
-    private readonly string title = Game1.content.LoadString($"{ModEntry.Asset_Text}:Title");
-    private readonly string question = Game1.content.LoadString($"{ModEntry.Asset_Text}:Question");
-
     public override void draw(
         SpriteBatch b,
         Color c,
@@ -28,14 +29,22 @@ public sealed class SpecialDrawsComponent(
         int yOffset = 0
     )
     {
+        // bg texture
         b.Draw(texture, new Vector2(sourceRect.X - (texture.Width - Game1.daybg.Width) / 2, sourceRect.Y), Color.White);
 
-        SpriteText.drawStringWithScrollCenteredAt(b, title, bounds.X + sourceRect.Width / 2, sourceRect.Y - 128);
+        // 'Barber Shop'
+        SpriteText.drawStringWithScrollCenteredAt(
+            b,
+            I18n.Menu_Title(),
+            bounds.X + sourceRect.Width / 2,
+            sourceRect.Y - 128
+        );
 
-        Vector2 questionSize = Game1.dialogueFont.MeasureString(question);
+        // 'What style would you like today?'
+        Vector2 questionSize = Game1.dialogueFont.MeasureString(I18n.Menu_Question());
         Utility.drawTextWithShadow(
             b,
-            question,
+            I18n.Menu_Question(),
             Game1.dialogueFont,
             new Vector2(bounds.X + sourceRect.Width / 2 - questionSize.X / 2, sourceRect.Y - 64),
             Game1.textColor,
@@ -44,28 +53,41 @@ public sealed class SpecialDrawsComponent(
     }
 }
 
+/// <summary>Barber shop flavored CharacterCustomization menu</summary>
 public sealed class BarberShopMenu : CharacterCustomization
 {
+    private static readonly MethodInfo optionButtonClickMethod = typeof(CharacterCustomization).GetMethod(
+        "optionButtonClick",
+        BindingFlags.NonPublic | BindingFlags.Instance
+    )!;
+
+    private (int, int, Color) PriorState;
+
     public BarberShopMenu(Source source)
         : base(source, false)
     {
         // make menu shorter
-        height -= 128;
+        height -= 96;
         UnResetComponents();
+        height -= 32;
+        PriorState = new(Game1.player.accessory.Value, Game1.player.hair.Value, Game1.player.hairstyleColor.Value);
+        GetOrCreateDisplayFarmer();
     }
 
     public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
     {
         source = Source.Wizard;
         base.gameWindowSizeChanged(oldBounds, newBounds);
+        height += 32;
         UnResetComponents();
+        height -= 32;
     }
 
-    public override void draw(SpriteBatch b)
-    {
-        base.draw(b);
-    }
-
+    /// <summary>
+    /// Vanilla method CharacterCustomization.ResetComponents arranges all the components of a menu.
+    /// This method rearranges them afterwards.
+    /// It is to be called in the ctor and gameWindowSizeChanged just like ResetComponents
+    /// </summary>
     public void UnResetComponents()
     {
         // remove gender buttons
@@ -118,18 +140,55 @@ public sealed class BarberShopMenu : CharacterCustomization
             )
         );
     }
+
+    private void ConfirmChoice(Farmer who)
+    {
+        if (
+            who.accessory.Value != PriorState.Item1
+            || who.hair.Value != PriorState.Item2
+            || who.hairstyleColor.Value != PriorState.Item3
+        )
+        {
+            Game1.player.Money -= ModEntry.BarberCost;
+        }
+        Game1.nextClickableMenu.Add(new DialogueBox(I18n.Menu_Finished()));
+        optionButtonClickMethod?.Invoke(this, [okButton.name]);
+    }
+
+    private void CancelChoice(Farmer who)
+    {
+        who.changeAccessory(PriorState.Item1);
+        who.changeHairStyle(PriorState.Item2);
+        who.changeHairColor(PriorState.Item3);
+        Game1.nextClickableMenu.Add(new DialogueBox(I18n.Menu_Canceled()));
+        optionButtonClickMethod?.Invoke(this, [okButton.name]);
+    }
+
+    /// <summary>When exiting, require 500 gold for hairstyle change</summary>
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+        if (okButton.containsPoint(x, y) && canLeaveMenu() && optionButtonClickMethod != null)
+        {
+            okButton.scale -= 0.25f;
+            okButton.scale = Math.Max(0.75f, okButton.scale);
+            SetChildMenu(new ConfirmationDialog(I18n.Menu_Confirm(), ConfirmChoice, CancelChoice));
+            return;
+        }
+        base.receiveLeftClick(x, y, playSound);
+    }
 }
 
 public sealed class ModEntry : Mod
 {
     public const string ModId = "ES.BarberShop";
     public const string Asset_BarberBG = $"{ModId}/BarberBG";
-    public const string Asset_Text = $"{ModId}/Text";
+    public const int BarberCost = 500;
 
     public static Texture2D BarberBG => Game1.content.Load<Texture2D>(Asset_BarberBG);
 
     public override void Entry(IModHelper helper)
     {
+        I18n.Init(helper.Translation);
         GameLocation.RegisterTileAction(ModId, TileAction);
         helper.ConsoleCommands.Add(ModId, "test barber menu", ConsoleESCustomize);
         helper.Events.Content.AssetRequested += OnAssetRequested;
@@ -141,15 +200,19 @@ public sealed class ModEntry : Mod
         {
             e.LoadFromModFile<Texture2D>("assets/barber-bg.png", AssetLoadPriority.Low);
         }
-        if (e.Name.IsEquivalentTo(Asset_Text))
-        {
-            e.LoadFromModFile<Dictionary<string, string>>("assets/text.json", AssetLoadPriority.Exclusive);
-        }
     }
 
-    private bool TileAction(GameLocation location, string[] arg2, Farmer farmer, Point point)
+    private bool TileAction(GameLocation location, string[] args, Farmer farmer, Point point)
     {
+        if (Game1.player.Money < BarberCost)
+        {
+            Game1.drawObjectDialogue(I18n.Menu_NotEnoughMoney());
+            return false;
+        }
         Game1.activeClickableMenu = new BarberShopMenu(CharacterCustomization.Source.Wizard);
+        if (!ArgUtility.TryGetDirection(args, 1, out int direction, out string error, name: "string facingDirection"))
+            direction = 2;
+        DelayedAction.functionAfterDelay(() => farmer.faceDirection(direction), 1);
         return true;
     }
 

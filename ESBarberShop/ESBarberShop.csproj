@@ -16,7 +16,7 @@
     <Description>East Scarp Barber Shop</Description>
     <UniqueId>mushymato.ES.BarberShop</UniqueId>
     <UpdateKeys>GitHub:Mushymato/ESBarberShop</UpdateKeys>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <MinimumApiVersion_Behavior>UpdateFull</MinimumApiVersion_Behavior>
     <MinimumGameVersion_Behavior>UpdateFull</MinimumGameVersion_Behavior>
     <Dependencies_VersionBehavior>UpdateFull</Dependencies_VersionBehavior>
@@ -25,6 +25,7 @@
   <ItemGroup>
     <PackageReference Include="Leclair.Stardew.ModManifestBuilder" Version="2.4.1" />
     <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
+    <PackageReference Include="Pathoschild.Stardew.ModTranslationClassBuilder" Version="2.2.0" />
   </ItemGroup>
 
 </Project>
