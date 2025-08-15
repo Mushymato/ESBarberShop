@@ -1,0 +1,32 @@
+{
+  "$schema": "https://smapi.io/schemas/content-patcher.json",
+  "Format": "2.7.0",
+  "Changes": [
+    {
+      "Action": "EditMap",
+      "Target": "Maps/BusStop",
+      "MapTiles": [
+        {
+          "Position": {
+            "X": 28,
+            "Y": 21
+          },
+          "Layer": "Buildings",
+          "SetProperties": {
+            "Action": "ES.BarberShop Krobus 500 2"
+          }
+        },
+      ]
+    },
+    {
+      "Action": "EditData",
+      "Target": "Characters/Dialogue/Krobus",
+      "Entries": {
+        "ES.BarberShop_NotEnoughMoney": "Looks like you are short on cash, come again!",
+        "ES.BarberShop_Start": "Ah you came again!",
+        "ES.BarberShop_Finished": "Glad you liked it, come again!",
+        "ES.BarberShop_Canceled": "Sorry to hear that, come again!",
+      }
+    }
+  ]
+}

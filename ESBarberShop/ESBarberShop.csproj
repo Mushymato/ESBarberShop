@@ -14,9 +14,9 @@
     <Name>ES-BarberShop</Name>
     <Authors>mushymato</Authors>
     <Description>East Scarp Barber Shop</Description>
-    <UniqueId>mushymato.ES.BarberShop</UniqueId>
+    <UniqueId>ES.BarberShop</UniqueId>
     <UpdateKeys>GitHub:Mushymato/ESBarberShop</UpdateKeys>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <MinimumApiVersion_Behavior>UpdateFull</MinimumApiVersion_Behavior>
     <MinimumGameVersion_Behavior>UpdateFull</MinimumGameVersion_Behavior>
     <Dependencies_VersionBehavior>UpdateFull</Dependencies_VersionBehavior>

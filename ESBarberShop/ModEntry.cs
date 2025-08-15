@@ -61,11 +61,17 @@ public sealed class BarberShopMenu : CharacterCustomization
         BindingFlags.NonPublic | BindingFlags.Instance
     )!;
 
+    private readonly NPC Barber;
+
+    private readonly int Price;
+
     private (int, int, Color) PriorState;
 
-    public BarberShopMenu(Source source)
+    public BarberShopMenu(Source source, NPC barber, int price)
         : base(source, false)
     {
+        Barber = barber;
+        Price = price;
         // make menu shorter
         height -= 160;
         // move OK button up
@@ -145,9 +151,11 @@ public sealed class BarberShopMenu : CharacterCustomization
             || who.hairstyleColor.Value != PriorState.Item3
         )
         {
-            Game1.player.Money -= ModEntry.BarberCost;
+            Game1.player.Money -= Price;
         }
-        Game1.nextClickableMenu.Add(new DialogueBox(I18n.Menu_Finished()));
+        Game1.nextClickableMenu.Add(
+            new DialogueBox(new Dialogue(Barber, $"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Finished"))
+        );
         optionButtonClickMethod?.Invoke(this, [okButton.name]);
     }
 
@@ -156,7 +164,9 @@ public sealed class BarberShopMenu : CharacterCustomization
         who.changeAccessory(PriorState.Item1);
         who.changeHairStyle(PriorState.Item2);
         who.changeHairColor(PriorState.Item3);
-        Game1.nextClickableMenu.Add(new DialogueBox(I18n.Menu_Canceled()));
+        Game1.nextClickableMenu.Add(
+            new DialogueBox(new Dialogue(Barber, $"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Canceled"))
+        );
         optionButtonClickMethod?.Invoke(this, [okButton.name]);
     }
 
@@ -186,7 +196,6 @@ public sealed class ModEntry : Mod
     {
         I18n.Init(helper.Translation);
         GameLocation.RegisterTileAction(ModId, TileAction);
-        helper.ConsoleCommands.Add(ModId, "test barber menu", ConsoleESCustomize);
         helper.Events.Content.AssetRequested += OnAssetRequested;
     }
 
@@ -200,30 +209,47 @@ public sealed class ModEntry : Mod
 
     private bool TileAction(GameLocation location, string[] args, Farmer farmer, Point point)
     {
-        if (Game1.player.Money < BarberCost)
+        NPC? barber = null;
+        if (
+            ArgUtility.TryGet(
+                args,
+                1,
+                out string barberName,
+                out string error,
+                allowBlank: false,
+                name: "string npcName"
+            )
+        )
         {
-            Game1.drawObjectDialogue(I18n.Menu_NotEnoughMoney());
+            foreach (NPC npc in location.characters)
+            {
+                Monitor.Log($"{npc.Name}: {barberName}");
+                if (npc.Name == barberName)
+                {
+                    barber = npc;
+                    break;
+                }
+            }
+        }
+        if (barber == null)
+        {
+            Game1.drawObjectDialogue(I18n.Menu_BarberNotHere());
             return false;
         }
-        Game1.activeClickableMenu = new BarberShopMenu(CharacterCustomization.Source.Wizard);
-        if (!ArgUtility.TryGetDirection(args, 1, out int direction, out string error, name: "string facingDirection"))
+        if (!ArgUtility.TryGetOptionalInt(args, 2, out int barberCost, out error, name: "int barberCost"))
+        {
+            return false;
+        }
+        if (!ArgUtility.TryGetDirection(args, 3, out int direction, out error, name: "string facingDirection"))
             direction = 2;
+        if (Game1.player.Money < BarberCost)
+        {
+            Game1.DrawDialogue(barber, $"Characters/Dialogue/{barber.Name}:ES.BarberShop_NotEnoughMoney");
+            return false;
+        }
+        Game1.DrawDialogue(barber, $"Characters/Dialogue/{barber.Name}:ES.BarberShop_Start");
+        Game1.nextClickableMenu.Add(new BarberShopMenu(CharacterCustomization.Source.Wizard, barber, barberCost));
         DelayedAction.functionAfterDelay(() => farmer.faceDirection(direction), 1);
         return true;
-    }
-
-    private void ConsoleESCustomize(string arg1, string[] arg2)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        if (arg2.Length == 0)
-        {
-            Game1.activeClickableMenu = new BarberShopMenu(CharacterCustomization.Source.Wizard);
-        }
-        else
-        {
-            Game1.activeClickableMenu = new CharacterCustomization(CharacterCustomization.Source.Wizard);
-        }
     }
 }
