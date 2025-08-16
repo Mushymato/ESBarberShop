@@ -17,7 +17,9 @@ public sealed class SpecialDrawsComponent(
     Rectangle bounds, // new(xPositionOnScreen, yPositionOnScreen, 0, 0),
     Texture2D texture,
     Rectangle sourceRect, // new(portraitBox.X, portraitBox.Y, width, height)
-    float scale
+    float scale,
+    string shopTitle,
+    string shopMessage
 ) : ClickableTextureComponent(bounds, texture, sourceRect, scale, false)
 {
     public override void draw(
@@ -33,18 +35,13 @@ public sealed class SpecialDrawsComponent(
         b.Draw(texture, new Vector2(sourceRect.X - (texture.Width - Game1.daybg.Width) / 2, sourceRect.Y), Color.White);
 
         // 'Barber Shop'
-        SpriteText.drawStringWithScrollCenteredAt(
-            b,
-            I18n.Menu_Title(),
-            bounds.X + sourceRect.Width / 2,
-            sourceRect.Y - 128
-        );
+        SpriteText.drawStringWithScrollCenteredAt(b, shopTitle, bounds.X + sourceRect.Width / 2, sourceRect.Y - 128);
 
         // 'What style would you like today?'
-        Vector2 questionSize = Game1.dialogueFont.MeasureString(I18n.Menu_Question());
+        Vector2 questionSize = Game1.dialogueFont.MeasureString(shopMessage);
         Utility.drawTextWithShadow(
             b,
-            I18n.Menu_Question(),
+            shopMessage,
             Game1.dialogueFont,
             new Vector2(bounds.X + sourceRect.Width / 2 - questionSize.X / 2, sourceRect.Y - 64),
             Game1.textColor,
@@ -76,6 +73,13 @@ public sealed class BarberShopMenu : CharacterCustomization
         height -= 160;
         // move OK button up
         okButton.bounds.Y -= 160;
+        okButton.bounds.X -= 60;
+        okButton.bounds.Width = 30 * 4;
+        okButton.bounds.Height = 13 * 4;
+        okButton.texture = Game1.mouseCursors;
+        okButton.sourceRect = new(441, 411, 30, 13);
+        okButton.scale = 4;
+        okButton.baseScale = 4;
         UnResetComponents();
         PriorState = new(Game1.player.accessory.Value, Game1.player.hair.Value, Game1.player.hairstyleColor.Value);
     }
@@ -138,7 +142,9 @@ public sealed class BarberShopMenu : CharacterCustomization
                 new(xPositionOnScreen, yPositionOnScreen, 0, 0),
                 ModEntry.BarberBG,
                 new(portraitBox.X, portraitBox.Y, width, height),
-                4
+                4,
+                Game1.content.LoadString($"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Title"),
+                Game1.content.LoadString($"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Message")
             )
         );
     }
@@ -153,9 +159,9 @@ public sealed class BarberShopMenu : CharacterCustomization
         {
             Game1.player.Money -= Price;
         }
-        Game1.nextClickableMenu.Add(
-            new DialogueBox(new Dialogue(Barber, $"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Finished"))
-        );
+        Barber.setNewDialogue($"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Finished", add: true);
+        Game1.currentSpeaker = Barber;
+        Game1.nextClickableMenu.Add(new DialogueBox(Barber.CurrentDialogue.Peek()));
         optionButtonClickMethod?.Invoke(this, [okButton.name]);
     }
 
@@ -164,10 +170,23 @@ public sealed class BarberShopMenu : CharacterCustomization
         who.changeAccessory(PriorState.Item1);
         who.changeHairStyle(PriorState.Item2);
         who.changeHairColor(PriorState.Item3);
-        Game1.nextClickableMenu.Add(
-            new DialogueBox(new Dialogue(Barber, $"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Canceled"))
-        );
+        Barber.setNewDialogue($"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Canceled", add: true);
+        Game1.currentSpeaker = Barber;
+        Game1.nextClickableMenu.Add(new DialogueBox(Barber.CurrentDialogue.Peek()));
         optionButtonClickMethod?.Invoke(this, [okButton.name]);
+    }
+
+    public override void performHoverAction(int x, int y)
+    {
+        base.performHoverAction(x, y);
+        if (okButton.containsPoint(x, y) && canLeaveMenu())
+        {
+            okButton.scale = Math.Min(okButton.scale + 0.08f, okButton.baseScale + 0.4f);
+        }
+        else
+        {
+            okButton.scale = Math.Max(okButton.scale - 0.08f, okButton.baseScale);
+        }
     }
 
     /// <summary>When exiting, require 500 gold for hairstyle change</summary>
@@ -175,9 +194,15 @@ public sealed class BarberShopMenu : CharacterCustomization
     {
         if (okButton.containsPoint(x, y) && canLeaveMenu() && optionButtonClickMethod != null)
         {
-            okButton.scale -= 0.25f;
-            okButton.scale = Math.Max(0.75f, okButton.scale);
-            SetChildMenu(new ConfirmationDialog(I18n.Menu_Confirm(), ConfirmChoice, CancelChoice));
+            okButton.scale -= 1f;
+            okButton.scale = Math.Max(3f, okButton.scale);
+            SetChildMenu(
+                new ConfirmationDialog(
+                    Game1.content.LoadString($"Characters/Dialogue/{Barber.Name}:ES.BarberShop_Confirm"),
+                    ConfirmChoice,
+                    CancelChoice
+                )
+            );
             return;
         }
         base.receiveLeftClick(x, y, playSound);
@@ -189,12 +214,19 @@ public sealed class ModEntry : Mod
     public const string ModId = "ES.BarberShop";
     public const string Asset_BarberBG = $"{ModId}/BarberBG";
     public const int BarberCost = 500;
-
+    public static readonly Lazy<Texture2D> defaultTx =
+        new(() =>
+        {
+            Texture2D tx = new(Game1.game1.GraphicsDevice, 640, 192, mipmap: false, SurfaceFormat.Color);
+            Color[] data = new Color[640 * 192];
+            Array.Fill(data, Color.White);
+            tx.SetData(data);
+            return tx;
+        });
     public static Texture2D BarberBG => Game1.content.Load<Texture2D>(Asset_BarberBG);
 
     public override void Entry(IModHelper helper)
     {
-        I18n.Init(helper.Translation);
         GameLocation.RegisterTileAction(ModId, TileAction);
         helper.Events.Content.AssetRequested += OnAssetRequested;
     }
@@ -203,7 +235,7 @@ public sealed class ModEntry : Mod
     {
         if (e.Name.IsEquivalentTo(Asset_BarberBG))
         {
-            e.LoadFromModFile<Texture2D>("assets/barber-bg.png", AssetLoadPriority.Low);
+            e.LoadFrom(() => defaultTx.Value, AssetLoadPriority.Low);
         }
     }
 
@@ -233,7 +265,13 @@ public sealed class ModEntry : Mod
         }
         if (barber == null)
         {
-            Game1.drawObjectDialogue(I18n.Menu_BarberNotHere());
+            if (
+                Game1.content.LoadStringReturnNullIfNotFound($"Characters/Dialogue/{barberName}:ES.BarberShop_NotHere")
+                is string notHere
+            )
+            {
+                Game1.drawObjectDialogue(notHere);
+            }
             return false;
         }
         if (!ArgUtility.TryGetOptionalInt(args, 2, out int barberCost, out error, name: "int barberCost"))
@@ -244,10 +282,12 @@ public sealed class ModEntry : Mod
             direction = 2;
         if (Game1.player.Money < BarberCost)
         {
-            Game1.DrawDialogue(barber, $"Characters/Dialogue/{barber.Name}:ES.BarberShop_NotEnoughMoney");
+            barber.setNewDialogue($"Characters/Dialogue/{barber.Name}:ES.BarberShop_NotEnoughMoney", add: true);
+            Game1.drawDialogue(barber);
             return false;
         }
-        Game1.DrawDialogue(barber, $"Characters/Dialogue/{barber.Name}:ES.BarberShop_Start");
+        barber.setNewDialogue($"Characters/Dialogue/{barber.Name}:ES.BarberShop_Start", add: true);
+        Game1.drawDialogue(barber);
         Game1.nextClickableMenu.Add(new BarberShopMenu(CharacterCustomization.Source.Wizard, barber, barberCost));
         DelayedAction.functionAfterDelay(() => farmer.faceDirection(direction), 1);
         return true;

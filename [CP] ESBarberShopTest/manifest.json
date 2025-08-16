@@ -1,0 +1,12 @@
+{
+    "Name": "[CP] Pondering the Carp",
+    "Author": "mushymato",
+    "Version": "1.0.0",
+    "Description": "Debug pack 2 for strange load type problem.",
+    "UniqueID": "debug.LoadDataModel.2",
+    "MinimumApiVersion": "4.0.0",
+    "ContentPackFor": {
+        "UniqueID": "Pathoschild.ContentPatcher"
+    },
+    "Dependencies": []
+}

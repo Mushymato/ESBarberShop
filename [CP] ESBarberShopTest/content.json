@@ -19,9 +19,21 @@
       ]
     },
     {
+      "Action": "Load",
+      "Target": "ES.BarberShop/BarberBG",
+      "FromFile": "assets/barber-bg.png",
+      "Priority": "Medium"
+    },
+    {
       "Action": "EditData",
       "Target": "Characters/Dialogue/Krobus",
       "Entries": {
+        // These are UI strings and don't accept dialogue syntax
+        "ES.BarberShop_Title": "Barber Shop",
+        "ES.BarberShop_Message": "What style would you like today?",
+        "ES.BarberShop_Confirm": "Are you satisfied with this style?",
+        "ES.BarberShop_NotHere": "The barber is not here right now.",
+        // These are dialogue and use normal dialogue syntax
         "ES.BarberShop_NotEnoughMoney": "Looks like you are short on cash, come again!",
         "ES.BarberShop_Start": "Ah you came again!",
         "ES.BarberShop_Finished": "Glad you liked it, come again!",
